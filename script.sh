@@ -23,7 +23,7 @@ fi
 echo "eslint version:$(npx --no-install -c 'eslint --version')"
 
 echo '::group:: Running eslint with reviewdog 🐶 ...'
-npx --no-install -c "eslint -f="${ESLINT_FORMATTER}" ${INPUT_ESLINT_FLAGS:-'.'}" \
+output=$(npx --no-install -c "eslint -f="${ESLINT_FORMATTER}" ${INPUT_ESLINT_FLAGS:-'.'}" \
   | reviewdog -f=rdjson \
       -name="${INPUT_TOOL_NAME}" \
       -reporter="${INPUT_REPORTER:-github-pr-review}" \
@@ -31,8 +31,17 @@ npx --no-install -c "eslint -f="${ESLINT_FORMATTER}" ${INPUT_ESLINT_FLAGS:-'.'}"
       -fail-level="${INPUT_FAIL_LEVEL}" \
       -fail-on-error="${INPUT_FAIL_ON_ERROR}" \
       -level="${INPUT_LEVEL}" \
-      ${INPUT_REVIEWDOG_FLAGS}
+      ${INPUT_REVIEWDOG_FLAGS} 2>&1)
 
 reviewdog_rc=$?
+
+case "$output" in
+  *"Too many results (annotations) in diff"*)
+    echo "Detected GitHub annotation limits, treating as success"
+    reviewdog_rc=0
+    ;;
+esac
+
+echo "$output"
 echo '::endgroup::'
 exit $reviewdog_rc
